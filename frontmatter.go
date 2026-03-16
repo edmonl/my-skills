@@ -17,8 +17,8 @@ type skillFrontmatter struct {
 const maxFrontmatterBytes = 1 * 1024 * 1024
 
 var targetKeys = map[string]struct{}{
-	"name":        struct{}{},
-	"description": struct{}{},
+	"name":        {},
+	"description": {},
 }
 
 func parseFrontmatter(reader io.Reader) (*skillFrontmatter, error) {

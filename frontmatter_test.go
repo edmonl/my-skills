@@ -7,10 +7,10 @@ import (
 
 func TestParseFrontmatter(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		want        *skillFrontmatter
-		wantErr     string
+		name    string
+		input   string
+		want    *skillFrontmatter
+		wantErr string
 	}{
 		{
 			name: "valid frontmatter with extra fields",
@@ -25,13 +25,13 @@ func TestParseFrontmatter(t *testing.T) {
 			},
 		},
 		{
-			name: "missing description",
-			input: "name: Example Skill\n",
+			name:    "missing description",
+			input:   "name: Example Skill\n",
 			wantErr: "parse frontmatter: missing description",
 		},
 		{
-			name: "non mapping document",
-			input: "- name: Example Skill\n- description: Useful description\n",
+			name:    "non mapping document",
+			input:   "- name: Example Skill\n- description: Useful description\n",
 			wantErr: "parse frontmatter: not a map",
 		},
 		{
