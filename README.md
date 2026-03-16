@@ -55,5 +55,5 @@ The repository includes an [`AGENTS-example.md`](./AGENTS-example.md) file showi
 - [Go](https://go.dev/dl/)
 
 ```sh
-go install github.com/your-username/my-skills@latest
+go install github.com/edmonl/my-skills@latest
 ```
