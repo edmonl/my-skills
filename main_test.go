@@ -1,198 +1,148 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestParseFrontmatterValidYAML(t *testing.T) {
-	t.Parallel()
+func TestResolveSkillsRootUsesWorkingDirectoryWhenEnvUnset(t *testing.T) {
+	t.Setenv("MY_SKILLS_PATH", "")
 
-	path := writeSkillFile(t, "---\nname: example\ndescription: >-\n  Example skill\n---\n# Body\n")
-	file, err := os.Open(path)
+	tempDir := t.TempDir()
+	withWorkingDir(t, tempDir)
+
+	got, err := resolveSkillsRoot()
 	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = file.Close() })
-
-	frontmatter, err := parseFrontmatter(file)
-	if err != nil {
-		t.Fatalf("parseFrontmatter returned error: %v", err)
+		t.Fatalf("resolve skills root: %v", err)
 	}
 
-	if got, want := frontmatter.Name, "example"; got != want {
-		t.Fatalf("name = %q, want %q", got, want)
-	}
-
-	if got, want := frontmatter.Description, "Example skill"; got != want {
-		t.Fatalf("description = %q, want %q", got, want)
+	if got != tempDir {
+		t.Fatalf("expected %q, got %q", tempDir, got)
 	}
 }
 
-func TestParseFrontmatterRejectsMissingDelimiters(t *testing.T) {
-	t.Parallel()
+func TestResolveSkillsRootUsesAbsoluteConfiguredPath(t *testing.T) {
+	tempDir := t.TempDir()
+	configured := filepath.Join(tempDir, "..", filepath.Base(tempDir))
+	t.Setenv("MY_SKILLS_PATH", "  "+configured+"  ")
 
-	path := writeSkillFile(t, "name: example\n")
-	file, err := os.Open(path)
+	got, err := resolveSkillsRoot()
 	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = file.Close() })
-
-	_, err = parseFrontmatter(file)
-	if err == nil {
-		t.Fatal("parseFrontmatter unexpectedly succeeded")
-	}
-}
-
-func TestLoadSkillManifestRejectsUnknownFields(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	skillDir := filepath.Join(root, "example")
-	if err := os.Mkdir(skillDir, 0o755); err != nil {
-		t.Fatalf("Mkdir: %v", err)
+		t.Fatalf("resolve skills root: %v", err)
 	}
 
-	content := "---\nname: example\ndescription: Example skill\nextra: no\n---\n"
-	if err := os.WriteFile(filepath.Join(skillDir, skillFileName), []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	_, err := loadSkillManifest(filepath.Join(skillDir, skillFileName), "example")
-	if err == nil {
-		t.Fatal("loadSkillManifest unexpectedly succeeded")
-	}
-}
-
-func TestLoadSkillManifestSupportsQuotedColons(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	skillDir := filepath.Join(root, "example")
-	if err := os.Mkdir(skillDir, 0o755); err != nil {
-		t.Fatalf("Mkdir: %v", err)
-	}
-
-	content := "---\nname: 'skill:example'\ndescription: \"Handles notes: tasks and ideas\"\n---\n"
-	path := filepath.Join(skillDir, skillFileName)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	entry, err := loadSkillManifest(path, "example")
+	want, err := filepath.Abs(configured)
 	if err != nil {
-		t.Fatalf("loadSkillManifest returned error: %v", err)
+		t.Fatalf("resolve expected absolute path: %v", err)
 	}
 
-	if got, want := entry.Name, "skill:example"; got != want {
-		t.Fatalf("name = %q, want %q", got, want)
-	}
-
-	if got, want := entry.Description, "Handles notes: tasks and ideas"; got != want {
-		t.Fatalf("description = %q, want %q", got, want)
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
 
-func TestDiscoverSkillsOnlyUsesImmediateSubdirectories(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-
-	validDir := filepath.Join(root, "valid")
-	if err := os.Mkdir(validDir, 0o755); err != nil {
-		t.Fatalf("Mkdir valid: %v", err)
-	}
-
-	validSkill := "---\nname: valid\ndescription: Valid skill\n---\n"
-	if err := os.WriteFile(filepath.Join(validDir, skillFileName), []byte(validSkill), 0o644); err != nil {
-		t.Fatalf("WriteFile valid: %v", err)
-	}
-
-	nestedDir := filepath.Join(root, "parent", "nested")
-	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll nested: %v", err)
-	}
-
-	nestedSkill := "---\nname: nested\ndescription: Nested skill\n---\n"
-	if err := os.WriteFile(filepath.Join(nestedDir, skillFileName), []byte(nestedSkill), 0o644); err != nil {
-		t.Fatalf("WriteFile nested: %v", err)
-	}
-
-	var entries []skillManifestEntry
-	err := discoverSkills(root, func(entry skillManifestEntry) error {
-		entries = append(entries, entry)
-		return nil
+func TestRunRejectsArguments(t *testing.T) {
+	originalArgs := os.Args
+	os.Args = []string{"my-skills", "unexpected"}
+	t.Cleanup(func() {
+		os.Args = originalArgs
 	})
-	if err != nil {
-		t.Fatalf("discoverSkills returned error: %v", err)
-	}
 
-	if len(entries) != 1 {
-		t.Fatalf("discoverSkills returned %d entries, want 1", len(entries))
+	err := run()
+	if err == nil {
+		t.Fatal("expected argument error")
 	}
-
-	if got, want := entries[0].Path, "valid"; got != want {
-		t.Fatalf("entry path = %q, want %q", got, want)
+	if err.Error() != "this command does not accept arguments" {
+		t.Fatalf("expected argument error, got %v", err)
 	}
 }
 
-func TestWriteManifestWritesJSONLines(t *testing.T) {
-	t.Parallel()
+func TestRunWritesManifestAndWarnsForInvalidSkill(t *testing.T) {
+	skillsRoot := makeTestSkillsRoot(t)
+	writeSkillFile(t, skillsRoot, "valid-skill",
+		"name: Valid Skill\n"+
+			"description: Useful description\n")
+	writeSkillFile(t, skillsRoot, "invalid-skill",
+		"name: Invalid Skill\n")
 
-	root := t.TempDir()
-	manifestPath := filepath.Join(root, manifestFileName)
-	skills := map[string]string{
-		"alpha": "---\nname: alpha\ndescription: Alpha skill\n---\n",
-		"beta":  "---\nname: beta\ndescription: Beta skill\n---\n",
-	}
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	t.Setenv("MY_SKILLS_PATH", skillsRoot)
 
-	for name, content := range skills {
-		skillDir := filepath.Join(root, name)
-		if err := os.Mkdir(skillDir, 0o755); err != nil {
-			t.Fatalf("Mkdir %s: %v", name, err)
-		}
+	originalArgs := os.Args
+	os.Args = []string{"my-skills"}
+	t.Cleanup(func() {
+		os.Args = originalArgs
+	})
 
-		if err := os.WriteFile(filepath.Join(skillDir, skillFileName), []byte(content), 0o644); err != nil {
-			t.Fatalf("WriteFile %s: %v", name, err)
-		}
-	}
-
-	if err := writeManifest(manifestPath, root); err != nil {
-		t.Fatalf("writeManifest returned error: %v", err)
-	}
-
-	data, err := os.ReadFile(manifestPath)
+	restoreStderr := captureStderr(t)
+	err := run()
+	stderrOutput := restoreStderr()
 	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
+		t.Fatalf("run returned error: %v", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("manifest line count = %d, want 2", len(lines))
+	manifestPath := filepath.Join(workDir, manifestFileName)
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
 	}
 
-	manifest := strings.Join(lines, "\n")
-
-	if !strings.Contains(manifest, `"name":"alpha"`) {
-		t.Fatalf("manifest missing alpha entry: %s", manifest)
+	lines := strings.Split(strings.TrimSpace(string(manifestBytes)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 manifest line, got %d", len(lines))
 	}
 
-	if !strings.Contains(manifest, `"path":"beta"`) {
-		t.Fatalf("manifest missing beta entry: %s", manifest)
+	var entry skillParseResult
+	if err := json.Unmarshal([]byte(lines[0]), &entry); err != nil {
+		t.Fatalf("unmarshal manifest entry: %v", err)
+	}
+	if entry.Path != "valid-skill" {
+		t.Fatalf("expected manifest path %q, got %q", "valid-skill", entry.Path)
+	}
+	if entry.Name != "Valid Skill" {
+		t.Fatalf("expected manifest name %q, got %q", "Valid Skill", entry.Name)
+	}
+	if entry.Description != "Useful description" {
+		t.Fatalf("expected manifest description %q, got %q", "Useful description", entry.Description)
+	}
+
+	if !strings.Contains(stderrOutput, "Warning: parse skill invalid-skill: parse frontmatter: missing description\n") {
+		t.Fatalf("expected invalid skill warning, got %q", stderrOutput)
 	}
 }
 
-func writeSkillFile(t *testing.T, contents string) string {
-	t.Helper()
+func TestRunReturnsErrorWhenSkillsRootCannotBeOpened(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	t.Setenv("MY_SKILLS_PATH", filepath.Join(workDir, "missing-root"))
 
-	root := t.TempDir()
-	path := filepath.Join(root, skillFileName)
-	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
+	originalArgs := os.Args
+	os.Args = []string{"my-skills"}
+	t.Cleanup(func() {
+		os.Args = originalArgs
+	})
+
+	restoreStderr := captureStderr(t)
+	err := run()
+	stderrOutput := restoreStderr()
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
 	}
 
-	return path
+	if !strings.Contains(stderrOutput, "Error: open skills path: ") {
+		t.Fatalf("expected root error on stderr, got %q", stderrOutput)
+	}
+
+	manifestPath := filepath.Join(workDir, manifestFileName)
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if len(manifestBytes) != 0 {
+		t.Fatalf("expected empty manifest for unreadable root, got %q", string(manifestBytes))
+	}
 }
