@@ -78,14 +78,16 @@ func TestRunWritesManifestAndWarnsForInvalidSkill(t *testing.T) {
 		os.Args = originalArgs
 	})
 
+	restoreStdout := captureStdout(t)
 	restoreStderr := captureStderr(t)
 	err := run()
+	stdoutOutput := restoreStdout()
 	stderrOutput := restoreStderr()
 	if err != nil {
 		t.Fatalf("run returned error: %v", err)
 	}
 
-	manifestPath := filepath.Join(workDir, manifestFileName)
+	manifestPath := filepath.Join(skillsRoot, manifestFileName)
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
@@ -113,6 +115,10 @@ func TestRunWritesManifestAndWarnsForInvalidSkill(t *testing.T) {
 	if !strings.Contains(stderrOutput, "Warning: parse skill invalid-skill: parse frontmatter: missing description\n") {
 		t.Fatalf("expected invalid skill warning, got %q", stderrOutput)
 	}
+
+	if stdoutOutput != manifestPath+"\n" {
+		t.Fatalf("expected stdout %q, got %q", manifestPath+"\\n", stdoutOutput)
+	}
 }
 
 func TestRunReturnsErrorWhenSkillsRootCannotBeOpened(t *testing.T) {
@@ -126,23 +132,24 @@ func TestRunReturnsErrorWhenSkillsRootCannotBeOpened(t *testing.T) {
 		os.Args = originalArgs
 	})
 
+	restoreStdout := captureStdout(t)
 	restoreStderr := captureStderr(t)
 	err := run()
+	stdoutOutput := restoreStdout()
 	stderrOutput := restoreStderr()
-	if err != nil {
-		t.Fatalf("run returned error: %v", err)
+	if err == nil {
+		t.Fatal("expected error when skills root cannot be opened")
 	}
 
-	if !strings.Contains(stderrOutput, "Error: open skills path: ") {
-		t.Fatalf("expected root error on stderr, got %q", stderrOutput)
+	if !strings.Contains(err.Error(), "open manifest: ") {
+		t.Fatalf("expected manifest open error, got %v", err)
 	}
 
-	manifestPath := filepath.Join(workDir, manifestFileName)
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
+	if stderrOutput != "" {
+		t.Fatalf("expected no stderr output, got %q", stderrOutput)
 	}
-	if len(manifestBytes) != 0 {
-		t.Fatalf("expected empty manifest for unreadable root, got %q", string(manifestBytes))
+
+	if stdoutOutput != "" {
+		t.Fatalf("expected no stdout output, got %q", stdoutOutput)
 	}
 }

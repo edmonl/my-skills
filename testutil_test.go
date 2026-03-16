@@ -90,3 +90,26 @@ func captureStderr(t *testing.T) func() string {
 		return string(output)
 	}
 }
+
+func captureStdout(t *testing.T) func() string {
+	t.Helper()
+
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+	os.Stdout = writer
+
+	return func() string {
+		_ = writer.Close()
+		os.Stdout = original
+
+		output, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatalf("read stdout: %v", err)
+		}
+		_ = reader.Close()
+		return string(output)
+	}
+}

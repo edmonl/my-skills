@@ -29,7 +29,8 @@ func run() error {
 		return err
 	}
 
-	manifestFile, err := os.OpenFile(manifestFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	manifestPath := filepath.Join(skillsRoot, manifestFileName)
+	manifestFile, err := os.OpenFile(manifestPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open manifest: %w", err)
 	}
@@ -58,6 +59,7 @@ func run() error {
 		return fmt.Errorf("flush manifest: %w", err)
 	}
 
+	fmt.Println(manifestPath)
 	return nil
 }
 
