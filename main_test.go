@@ -67,35 +67,40 @@ func TestRunPrintsEmbeddedPrompt(t *testing.T) {
 	}
 }
 
-func TestRunRejectsUnknownSubcommand(t *testing.T) {
-	originalArgs := os.Args
-	os.Args = []string{"my-skills", "unexpected"}
-	t.Cleanup(func() {
-		os.Args = originalArgs
-	})
-
-	err := run()
-	if err == nil {
-		t.Fatal("expected argument error")
+func TestRunRejectsInvalidArguments(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "unknown subcommand",
+			args:    []string{"my-skills", "unexpected"},
+			wantErr: `unknown subcommand "unexpected"`,
+		},
+		{
+			name:    "prompt arguments",
+			args:    []string{"my-skills", "prompt", "unexpected"},
+			wantErr: "prompt does not accept arguments",
+		},
 	}
-	if err.Error() != `unknown subcommand "unexpected"` {
-		t.Fatalf("expected unknown subcommand error, got %v", err)
-	}
-}
 
-func TestRunRejectsPromptArguments(t *testing.T) {
-	originalArgs := os.Args
-	os.Args = []string{"my-skills", "prompt", "unexpected"}
-	t.Cleanup(func() {
-		os.Args = originalArgs
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalArgs := os.Args
+			os.Args = tt.args
+			t.Cleanup(func() {
+				os.Args = originalArgs
+			})
 
-	err := run()
-	if err == nil {
-		t.Fatal("expected argument error")
-	}
-	if err.Error() != "prompt does not accept arguments" {
-		t.Fatalf("expected prompt argument error, got %v", err)
+			err := run()
+			if err == nil {
+				t.Fatalf("expected error %q, got nil", tt.wantErr)
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("expected error %q, got %q", tt.wantErr, err.Error())
+			}
+		})
 	}
 }
 
