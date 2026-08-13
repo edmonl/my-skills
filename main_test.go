@@ -76,7 +76,7 @@ func TestRunRejectsInvalidArguments(t *testing.T) {
 		{
 			name:    "unknown subcommand",
 			args:    []string{"my-skills", "unexpected"},
-			wantErr: `unknown subcommand "unexpected"`,
+			wantErr: "unknown subcommand unexpected",
 		},
 		{
 			name:    "prompt arguments",
