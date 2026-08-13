@@ -20,10 +20,24 @@ func main() {
 }
 
 func run() error {
-	if len(os.Args) > 1 {
-		return errors.New("this command does not accept arguments")
+	switch len(os.Args) {
+	case 1:
+		return generateManifest()
+	case 2:
+		if os.Args[1] == "prompt" {
+			fmt.Print(agentPrompt)
+			return nil
+		}
+		return fmt.Errorf("unknown subcommand %s", os.Args[1])
+	default:
+		if os.Args[1] == "prompt" {
+			return errors.New("prompt does not accept arguments")
+		}
+		return fmt.Errorf("unknown subcommand %s", os.Args[1])
 	}
+}
 
+func generateManifest() error {
 	skillsRoot, err := resolveSkillsRoot()
 	if err != nil {
 		return err

@@ -4,7 +4,7 @@ A command-line tool that scans a folder for skill definitions and generates a ma
 
 ## Overview
 
-Codex CLI with an ACP wrapper (e.g. [zed-industries/codex-acp](https://github.com/zed-industries/codex-acp), [cola-io/codex-acp](https://github.com/cola-io/codex-acp)) does not natively support custom skills. `my-skills` is a simple workaround to make custom skills available in an IDE via ACP and Codex — see [`AGENTS-example.md`](./AGENTS-example.md) for how to wire it up.
+Codex CLI with an ACP wrapper (e.g. [zed-industries/codex-acp](https://github.com/zed-industries/codex-acp), [cola-io/codex-acp](https://github.com/cola-io/codex-acp)) does not natively support custom skills. `my-skills` is a simple workaround to make custom skills available in an IDE via ACP and Codex. The agent instructions are embedded in the executable and available through `my-skills prompt`.
 
 `my-skills` walks a configured folder, discovers `SKILL.md` files in its immediate subfolders, and writes a `skills.manifest` file summarizing each valid skill.
 
@@ -28,9 +28,12 @@ my-skills
 
 # Using a custom path
 MY_SKILLS_PATH=/path/to/skills my-skills
+
+# Print the agent instructions
+my-skills prompt
 ```
 
-No arguments needed.
+Run `my-skills` without arguments to generate the manifest. The `prompt` subcommand prints the instructions to teach agents the usage.
 
 ## Output
 
@@ -46,9 +49,13 @@ The output file `skills.manifest` is written to `MY_SKILLS_PATH`. Each line is a
 
 Frontmatter in each `SKILL.md` is strictly validated. Any file that fails validation is skipped and will not appear in the manifest. A warning is printed to stderr for each skipped file.
 
-## AGENTS.md Integration
+## Agent Integration
 
-The repository includes an [`AGENTS-example.md`](./AGENTS-example.md) file showing how to use `my-skills` within an `AGENTS.md` workflow. It assumes the `my-skills` executable is on your `PATH` (which `go install` does by default). Append its contents to your project's `AGENTS.md` to get started.
+You may ask agents to follow the usage in the output of `my-skills prompt`, or add the instructions to e.g. a project's `AGENTS.md`:
+
+```sh
+my-skills prompt >> AGENTS.md
+```
 
 ## Requirements
 

@@ -44,7 +44,30 @@ func TestResolveSkillsRootUsesAbsoluteConfiguredPath(t *testing.T) {
 	}
 }
 
-func TestRunRejectsArguments(t *testing.T) {
+func TestRunPrintsEmbeddedPrompt(t *testing.T) {
+	if !strings.HasPrefix(agentPrompt, "# My Skills\n") {
+		t.Fatalf("expected embedded prompt to start with the My Skills heading, got %q", agentPrompt)
+	}
+
+	originalArgs := os.Args
+	os.Args = []string{"my-skills", "prompt"}
+	t.Cleanup(func() {
+		os.Args = originalArgs
+	})
+
+	restoreStdout := captureStdout(t)
+	err := run()
+	stdoutOutput := restoreStdout()
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+
+	if stdoutOutput != agentPrompt {
+		t.Fatalf("expected embedded prompt %q, got %q", agentPrompt, stdoutOutput)
+	}
+}
+
+func TestRunRejectsUnknownSubcommand(t *testing.T) {
 	originalArgs := os.Args
 	os.Args = []string{"my-skills", "unexpected"}
 	t.Cleanup(func() {
@@ -55,8 +78,24 @@ func TestRunRejectsArguments(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected argument error")
 	}
-	if err.Error() != "this command does not accept arguments" {
-		t.Fatalf("expected argument error, got %v", err)
+	if err.Error() != `unknown subcommand "unexpected"` {
+		t.Fatalf("expected unknown subcommand error, got %v", err)
+	}
+}
+
+func TestRunRejectsPromptArguments(t *testing.T) {
+	originalArgs := os.Args
+	os.Args = []string{"my-skills", "prompt", "unexpected"}
+	t.Cleanup(func() {
+		os.Args = originalArgs
+	})
+
+	err := run()
+	if err == nil {
+		t.Fatal("expected argument error")
+	}
+	if err.Error() != "prompt does not accept arguments" {
+		t.Fatalf("expected prompt argument error, got %v", err)
 	}
 }
 
